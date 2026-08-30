@@ -733,12 +733,30 @@ document.querySelectorAll('.sn-item').forEach(item=>{
 });
 
 /* ---------------- storage helpers ---------------- */
+/* Uses Claude's artifact storage when available (previewing inside a Claude chat),
+   otherwise falls back to standard localStorage (when hosted on a real site). */
+const HAS_ARTIFACT_STORAGE = (typeof window.storage !== 'undefined' && typeof window.storage.get === 'function');
+
 async function loadKey(key, fallback){
-  try{ const res = await window.storage.get(key, false); if(res && res.value) return JSON.parse(res.value); return fallback; }
-  catch(e){ return fallback; }
+  if(HAS_ARTIFACT_STORAGE){
+    try{
+      const res = await window.storage.get(key, false);
+      if(res && res.value) return JSON.parse(res.value);
+    }catch(e){ /* key not found yet — use fallback */ }
+    return fallback;
+  }
+  try{
+    const raw = localStorage.getItem(key);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return fallback;
 }
 async function saveKey(key, value){
-  try{ await window.storage.set(key, JSON.stringify(value), false); } catch(e){ console.error(e); }
+  if(HAS_ARTIFACT_STORAGE){
+    try{ await window.storage.set(key, JSON.stringify(value), false); }catch(e){ console.error(e); }
+    return;
+  }
+  try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){ console.error(e); }
 }
 
 /* ---------------- default data ---------------- */
